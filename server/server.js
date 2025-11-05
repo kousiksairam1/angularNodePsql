@@ -42,9 +42,20 @@ app.post('/api/products', async (req, res) => {
       return res.status(400).json({ error: 'Name and price are required' });
     }
 
+    const parsedPrice = parseFloat(price);
+    const parsedQuantity = parseInt(quantity) || 0;
+
+    if (isNaN(parsedPrice)) {
+      return res.status(400).json({ error: 'Price must be a valid number' });
+    }
+
+    if (isNaN(parsedQuantity) || parsedQuantity < 0) {
+      return res.status(400).json({ error: 'Quantity must be a valid non-negative number' });
+    }
+
     const result = await db.query(
       'INSERT INTO products (name, description, price, quantity) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, description || '', parseFloat(price), parseInt(quantity) || 0]
+      [name, description || '', parsedPrice, parsedQuantity]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -62,9 +73,20 @@ app.put('/api/products/:id', async (req, res) => {
       return res.status(400).json({ error: 'Name and price are required' });
     }
 
+    const parsedPrice = parseFloat(price);
+    const parsedQuantity = parseInt(quantity) || 0;
+
+    if (isNaN(parsedPrice)) {
+      return res.status(400).json({ error: 'Price must be a valid number' });
+    }
+
+    if (isNaN(parsedQuantity) || parsedQuantity < 0) {
+      return res.status(400).json({ error: 'Quantity must be a valid non-negative number' });
+    }
+
     const result = await db.query(
       'UPDATE products SET name = $1, description = $2, price = $3, quantity = $4 WHERE id = $5 RETURNING *',
-      [name, description || '', parseFloat(price), parseInt(quantity) || 0, id]
+      [name, description || '', parsedPrice, parsedQuantity, id]
     );
 
     if (result.rows.length === 0) {
