@@ -1,0 +1,79 @@
+<div class="container">
+  <div class="form-container">
+    <div class="form-header">
+      <h1>{{ isEditMode ? 'Edit Product' : 'Add New Product' }}</h1>
+      <a routerLink="/products" class="btn btn-secondary">Back to List</a>
+    </div>
+
+    <div *ngIf="error" class="alert alert-error">
+      {{ error }}
+    </div>
+
+    <form [formGroup]="productForm" (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="name">Product Name *</label>
+        <input
+          type="text"
+          id="name"
+          formControlName="name"
+          [class.invalid]="submitted && f['name'].errors"
+          placeholder="Enter product name"
+        />
+        <div *ngIf="submitted && f['name'].errors" class="error">
+          <span *ngIf="f['name'].errors['required']">Product name is required</span>
+          <span *ngIf="f['name'].errors['minlength']">Product name must be at least 2 characters</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea
+          id="description"
+          formControlName="description"
+          rows="4"
+          placeholder="Enter product description"
+        ></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="price">Price ($) *</label>
+          <input
+            type="number"
+            id="price"
+            formControlName="price"
+            step="0.01"
+            [class.invalid]="submitted && f['price'].errors"
+            placeholder="0.00"
+          />
+          <div *ngIf="submitted && f['price'].errors" class="error">
+            <span *ngIf="f['price'].errors['required']">Price is required</span>
+            <span *ngIf="f['price'].errors['min']">Price must be at least 0</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="quantity">Quantity *</label>
+          <input
+            type="number"
+            id="quantity"
+            formControlName="quantity"
+            [class.invalid]="submitted && f['quantity'].errors"
+            placeholder="0"
+          />
+          <div *ngIf="submitted && f['quantity'].errors" class="error">
+            <span *ngIf="f['quantity'].errors['required']">Quantity is required</span>
+            <span *ngIf="f['quantity'].errors['min']">Quantity must be at least 0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-success" [disabled]="loading">
+          {{ loading ? 'Saving...' : (isEditMode ? 'Update Product' : 'Create Product') }}
+        </button>
+        <a routerLink="/products" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
