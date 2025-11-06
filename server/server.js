@@ -1,125 +1,66 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
 const db = require('./db');
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+
+// request logger
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') console.log('Body:', req.body);
+  next();
+});
 
 app.get('/api/products', async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM products ORDER BY id DESC');
-    res.json(result.rows);
+    const { rows } = await db.query('SELECT * FROM products');
+    res.json(rows);
   } catch (err) {
     console.error('Error fetching products:', err);
-    res.status(500).json({ error: 'Failed to fetch products' });
-  }
-});
-
-app.get('/api/products/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await db.query('SELECT * FROM products WHERE id = $1', [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error fetching product:', err);
-    res.status(500).json({ error: 'Failed to fetch product' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 app.post('/api/products', async (req, res) => {
+  const { name, description, price, quantity } = req.body;
+  if (!name || price === undefined || price === null) {
+    return res.status(400).json({ error: 'name and price are required' });
+  }
+  const parsedPrice = Number(price);
+  const parsedQuantity = quantity === undefined ? 0 : parseInt(quantity, 10);
+  if (Number.isNaN(parsedPrice) || Number.isNaN(parsedQuantity)) {
+    return res.status(400).json({ error: 'Invalid price or quantity' });
+  }
   try {
-    const { name, description, price, quantity } = req.body;
-    
-    if (!name || !price) {
-      return res.status(400).json({ error: 'Name and price are required' });
-    }
-
-    const parsedPrice = parseFloat(price);
-    const parsedQuantity = parseInt(quantity) || 0;
-
-    if (isNaN(parsedPrice)) {
-      return res.status(400).json({ error: 'Price must be a valid number' });
-    }
-
-    if (isNaN(parsedQuantity) || parsedQuantity < 0) {
-      return res.status(400).json({ error: 'Quantity must be a valid non-negative number' });
-    }
-
-    const result = await db.query(
-      'INSERT INTO products (name, description, price, quantity) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, description || '', parsedPrice, parsedQuantity]
-    );
-    res.status(201).json(result.rows[0]);
+    const insertQuery = `
+      INSERT INTO products (name, description, price, quantity)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+    const { rows } = await db.query(insertQuery, [name, description || null, parsedPrice, parsedQuantity]);
+    return res.status(201).json(rows[0]);
   } catch (err) {
     console.error('Error creating product:', err);
-    res.status(500).json({ error: 'Failed to create product' });
-  }
-});
-
-app.put('/api/products/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, description, price, quantity } = req.body;
-
-    if (!name || !price) {
-      return res.status(400).json({ error: 'Name and price are required' });
-    }
-
-    const parsedPrice = parseFloat(price);
-    const parsedQuantity = parseInt(quantity) || 0;
-
-    if (isNaN(parsedPrice)) {
-      return res.status(400).json({ error: 'Price must be a valid number' });
-    }
-
-    if (isNaN(parsedQuantity) || parsedQuantity < 0) {
-      return res.status(400).json({ error: 'Quantity must be a valid non-negative number' });
-    }
-
-    const result = await db.query(
-      'UPDATE products SET name = $1, description = $2, price = $3, quantity = $4 WHERE id = $5 RETURNING *',
-      [name, description || '', parsedPrice, parsedQuantity, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error updating product:', err);
-    res.status(500).json({ error: 'Failed to update product' });
+    return res.status(500).json({ error: 'Internal server error', details: err.message });
   }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await db.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid product id' });
 
-    res.json({ message: 'Product deleted successfully', product: result.rows[0] });
+  try {
+    const { rows } = await db.query('DELETE FROM products WHERE id = $1 RETURNING *;', [id]);
+    if (!rows || rows.length === 0) return res.status(404).json({ error: 'Product not found' });
+    return res.json({ message: 'Product deleted', product: rows[0] });
   } catch (err) {
     console.error('Error deleting product:', err);
-    res.status(500).json({ error: 'Failed to delete product' });
+    return res.status(500).json({ error: 'Internal server error', details: err.message });
   }
 });
 
-app.get('/', (req, res) => {
-  res.json({ message: 'Product CRUD API is running' });
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
